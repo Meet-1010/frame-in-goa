@@ -27,6 +27,13 @@ export async function saveShare(id: string, card: Buffer, og: Buffer): Promise<S
       put(`${PREFIX}/${id}/${FILES[0]}`, card, opts),
       put(`${PREFIX}/${id}/${FILES[1]}`, og, opts),
     ]);
+
+    // the share page derives these URLs rather than looking them up, so shout if
+    // that assumption ever stops holding
+    const derived = blobUrls(id);
+    if (derived && derived.og !== b.url) {
+      console.warn("blob url convention changed", { derived: derived.og, actual: b.url });
+    }
     return { card: a.url, og: b.url };
   }
 
@@ -39,10 +46,34 @@ export async function saveShare(id: string, card: Buffer, og: Buffer): Promise<S
   return localUrls(id);
 }
 
+/**
+ * Public blob URLs are a pure function of the id: put() writes to a fixed
+ * pathname with addRandomSuffix off, and the host comes from the store id.
+ *
+ * This used to call list() instead, which was the reason a freshly shared link
+ * showed no card on X. list() is an index and is eventually consistent, so the
+ * crawler could arrive before the upload appeared in it, get a 404, and cache
+ * that. Deriving the URL costs no round trip and cannot race the upload.
+ */
+function blobUrls(id: string): Stored | null {
+  const store = process.env.BLOB_STORE_ID;
+  if (!store) return null;
+  const host = `${store.replace(/^store_/, "").toLowerCase()}.public.blob.vercel-storage.com`;
+  return {
+    card: `https://${host}/${PREFIX}/${id}/${FILES[0]}`,
+    og: `https://${host}/${PREFIX}/${id}/${FILES[1]}`,
+  };
+}
+
 export async function getShare(id: string): Promise<Stored | null> {
   if (!ID.test(id)) return null;
 
   if (useBlob()) {
+    const derived = blobUrls(id);
+    if (derived) return derived;
+
+    // only reachable on a read-write-token setup, where there is no store id to
+    // build the host from
     const { list } = await import("@vercel/blob");
     const { blobs } = await list({ prefix: `${PREFIX}/${id}/`, limit: 4 });
     const card = blobs.find((b) => b.pathname.endsWith(FILES[0]))?.url;
