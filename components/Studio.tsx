@@ -40,12 +40,17 @@ export default function Studio() {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<null | "photo" | "share" | "download">(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [shared, setShared] = useState("");
   const [copied, setCopied] = useState(false);
   const [dragging, setDragging] = useState(false);
 
   const title = builderTitle(name || "builder", nudge);
   const isSquad = format === "squad";
+
+  // probed after mount so the server render and the first client render agree
+  const [fileShare, setFileShare] = useState(false);
+  useEffect(() => setFileShare(canShareFiles()), []);
 
   const draw = useCallback(async () => {
     await fontsReady();
@@ -185,25 +190,35 @@ export default function Studio() {
 
   async function shareToX() {
     setError("");
-    // opened up front, otherwise Safari kills it as a popup after the upload await
-    const tab = window.open("", "_blank");
+    setNotice("");
+
+    const viaFile = canShareFiles();
+    let tab: Window | null = null;
     setBusy("share");
     try {
-      let url = shared;
-      if (!url) {
-        const { card, og } = await buildBlobs();
-        const body = new FormData();
-        body.append("card", card, "card.jpg");
-        body.append("og", og, "og.jpg");
-        const res = await fetch("/api/share", { method: "POST", body });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Upload failed");
-        const json = (await res.json()) as { path: string };
-        url = `${window.location.origin}${json.path}`;
-        setShared(url);
+      if (viaFile && (await shareFile())) {
+        setNotice("Pick X in the sheet and the image goes with the post.");
+        return;
       }
+
+      // No file sharing here, so put the image on the clipboard to paste in.
+      // This has to run before the tab is opened: opening one takes focus away
+      // and the clipboard write then fails with "Document is not focused".
+      const pasteable = await copyImage();
+
+      // Still inside the click's transient activation, so it is not blocked as a
+      // popup, and it happens before the slow upload below.
+      tab = window.open("", "_blank");
+      const url = await ensureShareLink();
       const intent = intentUrl(captionText(), url);
       if (tab) tab.location.href = intent;
       else window.location.href = intent;
+
+      setNotice(
+        pasteable
+          ? `Image copied. Press ${modKey()} + V in the post to attach it.`
+          : "Post opened. Use Download, then drag the image into the post.",
+      );
     } catch (e) {
       tab?.close();
       setError(e instanceof Error ? e.message : "Could not open X. Download the image and post it manually.");
@@ -212,14 +227,59 @@ export default function Studio() {
     }
   }
 
-  async function shareSheet() {
+  async function ensureShareLink() {
+    if (shared) return shared;
+    const { card, og } = await buildBlobs();
+    const body = new FormData();
+    body.append("card", card, "card.jpg");
+    body.append("og", og, "og.jpg");
+    const res = await fetch("/api/share", { method: "POST", body });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Upload failed");
+    const json = (await res.json()) as { path: string };
+    const url = `${window.location.origin}${json.path}`;
+    setShared(url);
+    return url;
+  }
+
+  /**
+   * Hands the real image file to the OS sheet, which is the only way an image
+   * ends up genuinely attached to the post. Returns false if this device cannot
+   * do it, so the caller can fall back to the link.
+   */
+  async function shareFile() {
+    const blob = await canvasToBlob(canvasRef.current!, "image/jpeg", 0.95);
+    const file = new File([blob], fileName(format, slug).replace(/\.png$/, ".jpg"), {
+      type: "image/jpeg",
+    });
+    if (!navigator.canShare?.({ files: [file] })) return false;
+
     try {
-      const blob = await canvasToBlob(canvasRef.current!);
-      const file = new File([blob], fileName(format, slug), { type: "image/png" });
-      if (!navigator.canShare?.({ files: [file] })) return;
-      await navigator.share({ files: [file], text: captionText() });
+      await navigator.share({
+        files: [file],
+        text: `${captionText()}\n\n${window.location.origin}`,
+      });
+      return true;
+    } catch (e) {
+      // dismissing the sheet is not a failure worth falling through for
+      if ((e as Error)?.name === "AbortError") return true;
+      return false;
+    }
+  }
+
+  /**
+   * X strips images from web intents, so the next best thing on desktop is to
+   * put the png on the clipboard: one paste in the composer and it is attached.
+   * Passing the promise to ClipboardItem is what keeps Safari's user gesture alive.
+   */
+  async function copyImage() {
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") return false;
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": canvasToBlob(canvasRef.current!, "image/png") }),
+      ]);
+      return true;
     } catch {
-      /* sheet dismissed */
+      return false;
     }
   }
 
@@ -228,8 +288,6 @@ export default function Studio() {
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
-
-  const canShareFiles = typeof navigator !== "undefined" && "canShare" in navigator;
   const hasArt = isSquad ? members.length > 0 : Boolean(photo);
 
   return (
@@ -299,11 +357,22 @@ export default function Studio() {
                   {busy === "download" ? "Saving" : "Download"}
                 </button>
                 <button className="pill pill-green" onClick={shareToX} disabled={busy !== null}>
-                  {busy === "share" ? "Uploading" : "Share To X"}
+                  {busy === "share" ? "Preparing" : "Share To X"}
                 </button>
-                {canShareFiles && (
-                  <button className="pill pill-line sm:hidden" onClick={shareSheet} disabled={busy !== null}>
-                    Share Image
+                {!fileShare && (
+                  <button
+                    className="pill pill-line"
+                    onClick={async () => {
+                      setError("");
+                      setNotice(
+                        (await copyImage())
+                          ? `Image copied. Paste it into your post with ${modKey()} + V.`
+                          : "This browser will not copy images. Use Download instead.",
+                      );
+                    }}
+                    disabled={busy !== null}
+                  >
+                    Copy Image
                   </button>
                 )}
                 <button className="pill pill-line" onClick={copyCaption} disabled={busy !== null}>
@@ -314,6 +383,12 @@ export default function Studio() {
               {error && (
                 <p className="rise mt-3 rounded-lg border border-pink bg-pink/10 px-3 py-2 text-[13px] text-pink">
                   {error}
+                </p>
+              )}
+
+              {notice && (
+                <p className="rise mt-3 rounded-lg border border-green/40 bg-green/10 px-3 py-2 text-[13px] font-bold text-green">
+                  {notice}
                 </p>
               )}
 
@@ -599,4 +674,36 @@ function SiteFooter() {
 
 function clamp(v: number, lo = 0, hi = 1) {
   return Math.min(hi, Math.max(lo, v));
+}
+
+/**
+ * Whether handing the file to the OS sheet will actually reach X.
+ *
+ * Capability alone is the wrong test. Chrome on macOS happily reports it can
+ * share files, but the sheet it opens is Mail / Messages / AirDrop with no X in
+ * it, which is a dead end. X is only a share target on a phone, so this checks
+ * the device as well. Everything else gets the clipboard and the web intent.
+ */
+function canShareFiles() {
+  if (typeof navigator === "undefined" || typeof navigator.canShare !== "function") return false;
+  if (!isHandheld()) return false;
+  try {
+    const probe = new File([new Uint8Array([0xff, 0xd8, 0xff])], "probe.jpg", { type: "image/jpeg" });
+    return navigator.canShare({ files: [probe] });
+  } catch {
+    return false;
+  }
+}
+
+function isHandheld() {
+  const ua = navigator.userAgent;
+  const hint = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+  if (typeof hint?.mobile === "boolean") return hint.mobile;
+  if (/Android|iPhone|iPod|iPad/i.test(ua)) return true;
+  // iPadOS 13+ reports itself as a Mac, so touch points are the giveaway
+  return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+function modKey() {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl";
 }
