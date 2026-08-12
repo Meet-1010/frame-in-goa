@@ -1,0 +1,80 @@
+# Frame in Goa
+
+A photo goes in, a Hacker House Goa 2026 graphic comes out. Built for HH Goa Task #01.
+
+Three formats:
+
+- **PFP frame** (1024x1024) - square profile picture wrapped in the HH Goa ring
+- **Builder pass** (1600x900) - badge with name, stack and a generated builder class
+- **Squad frame** (1600x900) - up to six teammates in one combined frame
+
+## How it works
+
+Everything is drawn on a `<canvas>` in the browser. There is no server round trip
+to make the image, so the preview updates as you type and the download is instant.
+The photo never leaves the device unless you press Share to X.
+
+A few things worth calling out:
+
+**Any photo works.** Uploads are decoded through `createImageBitmap` with
+`imageOrientation: "from-image"` so iPhone photos are not sideways, HEIC files are
+converted with `heic-to` (loaded on demand, it is about a megabyte of wasm), and
+anything over 2048px is downscaled first so rendering stays quick.
+
+**No manual cropping.** `focalPoint()` in `lib/image.ts` downscales the photo to 72px
+wide, scores each pixel for skin tone in YCbCr, and takes the centroid. That becomes
+the focal point for the cover fit, so a face sitting in the left third of a landscape
+shot still lands in the middle of the circle. If the guess is off, drag the preview or
+use the zoom slider.
+
+**Share to X actually shows the graphic.** X does not let you attach an image through
+a web intent, so on share the generated PNG plus a 1200x630 version are uploaded, and
+the tweet carries a link to `/s/<id>`. That page sets `og:image` to the wide version,
+which is what X unfurls. On phones there is also a Share Image button that uses the
+Web Share API to hand the real file to the X app.
+
+## Brand
+
+Colours, fonts and the illustration language come from hhgoa.com: green `#0B6839`,
+yellow `#FEE101`, pink `#FF0080`, cream `#FFFBE8`, set in Imbue and Victor Mono, with
+the rising sun, the cropped palms and the गोवा sticker. The sun, palms and waves are
+drawn as canvas paths in `lib/draw.ts` rather than shipped as images, so they scale
+cleanly and recolour per theme.
+
+## Running it
+
+```bash
+npm install
+npm run dev
+```
+
+## Deploying
+
+Deploys to Vercel as is. Share links need somewhere to put the two PNGs:
+
+1. Vercel dashboard, Storage tab, create a Blob store and connect it to the project.
+2. That injects `BLOB_READ_WRITE_TOKEN`, which is all the app looks for.
+
+Without the token it falls back to writing into `.data/` on disk. Fine locally,
+not fine on serverless, where instances do not share a filesystem. Everything else
+(preview, download, copy caption) works either way.
+
+Set `NEXT_PUBLIC_SITE_URL` if you are on a custom domain, otherwise Vercel's own
+env vars are used to build absolute `og:image` URLs.
+
+## Layout
+
+```
+app/
+  page.tsx              the studio
+  s/[id]/page.tsx       share landing, owns the og tags
+  api/share/route.ts    accepts the two PNGs, returns an id
+  api/i/[id]/[file]     serves them back in local dev only
+lib/
+  brand.ts              palette, event copy, the three colourways
+  draw.ts               sun, palms, waves, arc text, stickers, cover fit
+  image.ts              decode, HEIC, downscale, focal point
+  render/               one module per format, plus the og composition
+```
+
+Not an official HH Goa page.
