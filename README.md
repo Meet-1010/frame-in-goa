@@ -54,8 +54,13 @@ npm run dev
 
 Deploys to Vercel as is. Share links need a Blob store:
 
-1. Vercel dashboard, Storage tab, create a Blob store and connect it to the project.
-2. Redeploy, so the deployment picks up the connection.
+1. Vercel dashboard, Storage tab, create a Blob store. **Set Access to Public.**
+   Private is the default and it cannot be changed after the store is created, so
+   getting this wrong means making a second store. These blobs are social share
+   images that X has to fetch anonymously, so a private store fails with
+   "Cannot use public access on a private store".
+2. Connect it to the project.
+3. Redeploy, so the deployment picks up the connection.
 
 Do not add any blob environment variable by hand. Vercel connects Blob over OIDC
 and injects `BLOB_STORE_ID`, and `@vercel/blob` authenticates with that plus the
