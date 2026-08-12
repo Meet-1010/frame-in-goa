@@ -52,14 +52,20 @@ npm run dev
 
 ## Deploying
 
-Deploys to Vercel as is. Share links need somewhere to put the two PNGs:
+Deploys to Vercel as is. Share links need a Blob store:
 
 1. Vercel dashboard, Storage tab, create a Blob store and connect it to the project.
-2. That injects `BLOB_READ_WRITE_TOKEN`, which is all the app looks for.
+2. Redeploy, so the deployment picks up the connection.
 
-Without the token it falls back to writing into `.data/` on disk. Fine locally,
-not fine on serverless, where instances do not share a filesystem. Everything else
-(preview, download, copy caption) works either way.
+Do not add any blob environment variable by hand. Vercel connects Blob over OIDC
+and injects `BLOB_STORE_ID`, and `@vercel/blob` authenticates with that plus the
+runtime's `VERCEL_OIDC_TOKEN`. There is no token to copy. If you create an empty
+`BLOB_READ_WRITE_TOKEN` yourself, Vercel will not overwrite it and the store will
+look unconfigured.
+
+With no store, uploads fall back to the local filesystem. Fine in dev, not on
+serverless where instances do not share a disk. Everything else (preview, download,
+copy caption) works either way.
 
 Set `NEXT_PUBLIC_SITE_URL` if you are on a custom domain, otherwise Vercel's own
 env vars are used to build absolute `og:image` URLs.

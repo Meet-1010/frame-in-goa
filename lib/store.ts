@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export type Stored = { card: string; og: string };
@@ -7,8 +8,16 @@ const PREFIX = "shares";
 const FILES = ["card.jpg", "og.jpg"] as const;
 const ID = /^[a-z0-9]{6,24}$/;
 
-const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-const localDir = path.join(process.cwd(), ".data", PREFIX);
+// Vercel connects Blob over OIDC now: it injects BLOB_STORE_ID and the runtime
+// picks up VERCEL_OIDC_TOKEN, with no read-write token anywhere. Older setups
+// still use BLOB_READ_WRITE_TOKEN, so treat either one as "blob is configured".
+const useBlob = () => Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
+
+// cwd is read only on serverless, so fall back somewhere writable if we ever
+// end up here in a deployed environment
+const localDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), "frame-in-goa", PREFIX)
+  : path.join(process.cwd(), ".data", PREFIX);
 
 export async function saveShare(id: string, card: Buffer, og: Buffer): Promise<Stored> {
   if (useBlob()) {
