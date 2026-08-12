@@ -10,7 +10,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string; fi
 
   return new Response(new Uint8Array(data), {
     headers: {
-      "content-type": "image/png",
+      "content-type": "image/jpeg",
       "cache-control": "public, max-age=31536000, immutable",
     },
   });

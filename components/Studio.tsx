@@ -143,9 +143,13 @@ export default function Studio() {
     setView((v) => ({ ...v, zoom: clamp(v.zoom * factor, 1, 3) }));
   }
 
+  /**
+   * Jpeg rather than png here: the share images only ever get looked at, and
+   * 300KB over a phone connection beats a megabyte. The download stays lossless.
+   */
   async function buildBlobs() {
     const canvas = canvasRef.current!;
-    const card = await canvasToBlob(canvas);
+    const card = await canvasToBlob(canvas, "image/jpeg", 0.92);
 
     const og = document.createElement("canvas");
     og.width = OG_W;
@@ -154,7 +158,7 @@ export default function Studio() {
     if (format === "frame") renderOgFrame(ctx, canvas, themeId, name);
     else renderOgWide(ctx, canvas, themeId);
 
-    return { card, og: await canvasToBlob(og) };
+    return { card, og: await canvasToBlob(og, "image/jpeg", 0.92) };
   }
 
   const captionText = () => caption(format, { name, title, team, count: members.length });
@@ -189,8 +193,8 @@ export default function Studio() {
       if (!url) {
         const { card, og } = await buildBlobs();
         const body = new FormData();
-        body.append("card", card, "card.png");
-        body.append("og", og, "og.png");
+        body.append("card", card, "card.jpg");
+        body.append("og", og, "og.jpg");
         const res = await fetch("/api/share", { method: "POST", body });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Upload failed");
         const json = (await res.json()) as { path: string };

@@ -52,8 +52,8 @@ export async function POST(req: Request) {
     og.arrayBuffer().then(Buffer.from),
   ]);
 
-  if (!isPng(cardBuf) || !isPng(ogBuf)) {
-    return NextResponse.json({ error: "PNG only." }, { status: 415 });
+  if (!isJpeg(cardBuf) || !isJpeg(ogBuf)) {
+    return NextResponse.json({ error: "Unsupported image." }, { status: 415 });
   }
 
   const id = newId();
@@ -67,6 +67,6 @@ export async function POST(req: Request) {
   return NextResponse.json({ id, path: `/s/${id}` });
 }
 
-function isPng(b: Buffer) {
-  return b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+function isJpeg(b: Buffer) {
+  return b.length > 4 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
 }

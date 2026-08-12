@@ -28,10 +28,12 @@ shot still lands in the middle of the circle. If the guess is off, drag the prev
 use the zoom slider.
 
 **Share to X actually shows the graphic.** X does not let you attach an image through
-a web intent, so on share the generated PNG plus a 1200x630 version are uploaded, and
-the tweet carries a link to `/s/<id>`. That page sets `og:image` to the wide version,
-which is what X unfurls. On phones there is also a Share Image button that uses the
-Web Share API to hand the real file to the X app.
+a web intent, so on share the graphic plus a 1200x630 version are uploaded and the
+tweet carries a link to `/s/<id>`. That page sets `og:image` to the wide version, which
+is what X unfurls. Those two go up as jpeg, about 300KB instead of a megabyte, since
+they are only ever looked at; the Download button still gives you a lossless PNG. On
+phones there is also a Share Image button that hands the real file to the X app through
+the Web Share API.
 
 ## Brand
 
