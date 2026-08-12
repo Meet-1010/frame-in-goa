@@ -26,6 +26,7 @@ export default function Studio() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const squadRef = useRef<HTMLInputElement | null>(null);
+  const uploading = useRef<Promise<string> | null>(null);
 
   const [format, setFormat] = useState<Format>("frame");
   const [themeId, setThemeId] = useState<ThemeId>("sunrise");
@@ -75,9 +76,10 @@ export default function Studio() {
     void draw();
   }, [draw]);
 
-  // any edit invalidates the link we uploaded last time
+  // any edit invalidates the link we uploaded last time, and any upload in flight
   useEffect(() => {
     setShared("");
+    uploading.current = null;
   }, [format, themeId, photo, view, name, role, title, members, team]);
 
   async function take(file: File | undefined | null) {
@@ -227,18 +229,30 @@ export default function Studio() {
     }
   }
 
-  async function ensureShareLink() {
-    if (shared) return shared;
-    const { card, og } = await buildBlobs();
-    const body = new FormData();
-    body.append("card", card, "card.jpg");
-    body.append("og", og, "og.jpg");
-    const res = await fetch("/api/share", { method: "POST", body });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Upload failed");
-    const json = (await res.json()) as { path: string };
-    const url = `${window.location.origin}${json.path}`;
-    setShared(url);
-    return url;
+  /**
+   * Idempotent, so pressing the button can kick the upload off early and the
+   * click itself then has nothing left to wait for.
+   */
+  function ensureShareLink() {
+    if (shared) return Promise.resolve(shared);
+    if (!uploading.current) {
+      uploading.current = (async () => {
+        const { card, og } = await buildBlobs();
+        const body = new FormData();
+        body.append("card", card, "card.jpg");
+        body.append("og", og, "og.jpg");
+        const res = await fetch("/api/share", { method: "POST", body });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Upload failed");
+        const { path } = (await res.json()) as { path: string };
+        const url = `${window.location.origin}${path}`;
+        setShared(url);
+        return url;
+      })().catch((e) => {
+        uploading.current = null; // let the next attempt retry
+        throw e;
+      });
+    }
+    return uploading.current;
   }
 
   /**
@@ -356,7 +370,16 @@ export default function Studio() {
                 <button className="pill pill-pink" onClick={download} disabled={busy !== null}>
                   {busy === "download" ? "Saving" : "Download"}
                 </button>
-                <button className="pill pill-green" onClick={shareToX} disabled={busy !== null}>
+                <button
+                  className="pill pill-green"
+                  onClick={shareToX}
+                  // start uploading on press, so by the time the click lands the
+                  // link usually already exists
+                  onPointerDown={() => {
+                    if (!fileShare && hasArt) void ensureShareLink().catch(() => {});
+                  }}
+                  disabled={busy !== null}
+                >
                   {busy === "share" ? "Preparing" : "Share To X"}
                 </button>
                 {!fileShare && (
