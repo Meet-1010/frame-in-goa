@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-green: #0b6839;
+  --color-green-deep: #064a28;
+  --color-yellow: #fee101;
+  --color-cream: #fffbe8;
+  --color-pink: #ff0080;
+
+  --font-display: var(--font-imbue);
+  --font-mono: var(--font-victor);
+  --font-deva: var(--font-baloo);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0b6839;
+  color: #fffbe8;
+}
+
+body {
+  font-family: var(--font-victor), ui-monospace, monospace;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+::selection {
+  background: #fee101;
+  color: #0b6839;
+}
+
+/* ---- type, matched to hhgoa.com ---- */
+
+.eyebrow {
+  font-family: var(--font-imbue), serif;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #fee101;
+}
+
+.eyebrow-green {
+  color: #0b6839;
+}
+
+.title {
+  font-family: var(--font-imbue), serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+}
+
+.serif {
+  font-family: var(--font-imbue), serif;
+}
+
+/* ---- pills ---- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 12px 26px;
+  font-family: var(--font-imbue), serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+.pill:active {
+  transform: translateY(1px);
+}
+
+.pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pill-pink {
+  background: #ff0080;
+  color: #ffffff;
+}
+
+.pill-green {
+  background: #0b6839;
+  color: #fffbe8;
+}
+
+.pill-yellow {
+  background: #fee101;
+  color: #0b6839;
+}
+
+.pill-outline {
+  background: transparent;
+  border-color: #ff0080;
+  color: #ff0080;
+}
+
+.pill-outline:hover {
+  background: #ff0080;
+  color: #ffffff;
+}
+
+.pill-line {
+  background: transparent;
+  border-color: rgba(11, 104, 57, 0.35);
+  color: #0b6839;
+}
+
+.pill-line:hover {
+  border-color: #0b6839;
+}
+
+/* ---- panel, the cream card the site uses for content blocks ---- */
+
+.panel {
+  background: #fffbe8;
+  color: #0b6839;
+  border-radius: 10px;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  opacity: 0.65;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid rgba(11, 104, 57, 0.3);
+  background: rgba(11, 104, 57, 0.04);
+  color: #0b6839;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.field::placeholder {
+  color: rgba(11, 104, 57, 0.42);
+}
+
+.field:focus {
+  border-color: #ff0080;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(11, 104, 57, 0.25);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff0080;
+  border: 3px solid #fffbe8;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff0080;
+  border: 3px solid #fffbe8;
+  cursor: pointer;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
